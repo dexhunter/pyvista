@@ -1,0 +1,63 @@
+[
+  {
+    "upstream_repo": "pyvista/pyvista",
+    "head_sha": "b644f3f6fe024085e5f826c2e590f7cf5e3aadce",
+    "file": "pyvista/core/utilities/points.py",
+    "function": "principal_axes",
+    "native_test_cmd": "PYVISTA_OFF_SCREEN=true make test-core ARGS=\"tests/core/test_utilities.py::test_principal_axes tests/core/test_utilities.py::test_principal_axes_return_std tests/core/test_utilities.py::test_principal_axes_empty tests/core/test_utilities.py::test_principal_axes_single_point tests/core/test_utilities.py::test_principal_axes_success_with_many_points -q --tb=line\"",
+    "bench_cmd": "PYVISTA_OFF_SCREEN=true uv run --no-sync python osspr-intake/harness/principal_axes_peak_memory.py",
+    "metric_kind": "peak_memory_bytes",
+    "baseline_value": 24530944,
+    "baseline_noise_pct": 0.01669727834362999,
+    "metric_benchmark": "PYVISTA_OFF_SCREEN=true uv run --no-sync python osspr-intake/harness/principal_axes_peak_memory.py",
+    "labeled_data": null,
+    "tests_pass_on_baseline": true,
+    "workload": "principal_axes on 1_000_000 seeded float64 points; peak VmRSS added during the call, inputs excluded, one fresh process per sample",
+    "notes": "The implementation materializes points - mean, a temporary the same size as the input, then forms a 3x3 Gram matrix. The docstring says this copy is not memory-optimal. A blocked covariance computes the same matrix with a small workspace and can drop about 24 MiB here. Five fresh processes, median of peak RSS delta. No open PR edits points.py. Open PR #9335 adds DataObject.principal_axes in dataobject.py and calls this function; it does not change it. Commits since 2026-10-13 in this file are #9482 (casts on other helpers) and prose-only #9402/#9400. dexhunter/pyvista PRs are only #9478, which edits cells.py _variable_size_cells. Not deprecated or being moved."
+  },
+  {
+    "upstream_repo": "pyvista/pyvista",
+    "head_sha": "b644f3f6fe024085e5f826c2e590f7cf5e3aadce",
+    "file": "pyvista/core/utilities/transformations.py",
+    "function": "apply_transformation_to_points",
+    "native_test_cmd": "PYVISTA_OFF_SCREEN=true make test-core ARGS=\"tests/core/test_utilities.py::test_apply_transformation_to_points -q --tb=line\"",
+    "bench_cmd": "PYVISTA_OFF_SCREEN=true uv run --no-sync python osspr-intake/harness/apply_transformation_peak_memory.py",
+    "metric_kind": "peak_memory_bytes",
+    "baseline_value": 64638976,
+    "baseline_noise_pct": 2.4079589379633735,
+    "metric_benchmark": "PYVISTA_OFF_SCREEN=true uv run --no-sync python osspr-intake/harness/apply_transformation_peak_memory.py",
+    "labeled_data": null,
+    "tests_pass_on_baseline": true,
+    "workload": "4x4 rotation+translation of 1_000_000 float32 points; peak VmRSS added during the call, inputs excluded, one fresh process per sample",
+    "notes": "The 4x4 path does np.empty((N, 4)) in float64 and a (1, 4, N) matmul even when the points are float32, so the homogeneous pad and the product are full-size temporaries (about 60 MiB of this peak). Applying the 3x3 block and the translation separately keeps one output array. transformations.py has no commit since 2026-10-13 and no open PR. dexhunter #9478 does not touch it. The direct test covers 3x3, 4x4, and inplace scale and passed. Not deprecated."
+  },
+  {
+    "upstream_repo": "pyvista/pyvista",
+    "head_sha": "b644f3f6fe024085e5f826c2e590f7cf5e3aadce",
+    "file": "pyvista/core/utilities/arrays.py",
+    "function": "convert_string_array",
+    "native_test_cmd": "PYVISTA_OFF_SCREEN=true make test-core ARGS=\"tests/core/test_utilities.py::test_convert_string_array_roundtrip tests/core/test_utilities.py::test_convert_string_array_scalar_deprecated tests/core/test_utilities.py::test_convert_string_array_keeps_second_axis tests/core/test_utilities.py::test_convert_string_array_single_column_is_not_flattened tests/core/test_utilities.py::test_convert_string_array_rejects_more_than_two_dimensions tests/core/test_utilities.py::test_convert_string_array_rejects_non_ascii tests/core/test_utilities.py::test_convert_string_array_with_name -q --tb=line\"",
+    "bench_cmd": "PYVISTA_OFF_SCREEN=true uv run --no-sync python osspr-intake/harness/convert_string_array_allocations.py",
+    "metric_kind": "allocations",
+    "baseline_value": 100019,
+    "baseline_noise_pct": 0.0009998100360931424,
+    "metric_benchmark": "PYVISTA_OFF_SCREEN=true uv run --no-sync python osspr-intake/harness/convert_string_array_allocations.py",
+    "labeled_data": null,
+    "tests_pass_on_baseline": true,
+    "workload": "NumPy-to-VTK conversion of 100_000 ASCII labels; peak increase in sys.getallocatedblocks while the call holds arr.tolist()",
+    "notes": "convert_string_array builds a Python list of every string with tolist() before vtkStringArray.SetValue, so all 100k strings are live together. Streaming SetValue from the array drops that peak by about 100k blocks. The scalar-string path is deprecated; this workload is a 1-D array, which is the supported path. Open PRs that touch arrays.py do not edit this function: #9271 inserts active-array helpers after vtkmatrix_from_array, and #9541 changes _SerializedDictArray.popitem. Merged since 2026-10-13 (#9482, #9480, #9402, #9400, #9429) change other signatures or prose. The string-shape behavior landed in #9114 on 2026-09-06, outside the window. dexhunter #9478 is cells.py only. Open issue #1162 is a 2021 non-ASCII table report; this function already rejects non-ASCII and is not being moved."
+  },
+  {
+    "upstream_repo": "pyvista/pyvista",
+    "head_sha": "b644f3f6fe024085e5f826c2e590f7cf5e3aadce",
+    "file": "pyvista/core/utilities/_cell_lengths.py",
+    "function": "_cell_edge_lengths",
+    "native_test_cmd": "PYVISTA_OFF_SCREEN=true make test-core ARGS=\"tests/core/test_cell_lengths.py -q --tb=line\"",
+    "bench_cmd": "PYVISTA_OFF_SCREEN=true uv run --no-sync python osspr-intake/harness/cell_edge_lengths_runtime.py",
+    "baseline_median_ms": 220.642163,
+    "baseline_noise_pct": 3.600844413404334,
+    "tests_pass_on_baseline": true,
+    "workload": "Edge lengths of a seeded 1_000_000-triangle PolyData; one untimed warmup, then one call with GC disabled",
+    "notes": "For equal-sized cells the function gathers an (N, npts, 3) coordinate block and fancy-indexes both endpoints of every edge before the norm. On one million triangles that is about 221 ms, and dropping those intermediate gathers is a plausible save above 10 ms. The only commit to this file since 2026-10-13 is #9481, which renames annotation types and does not change the algorithm. No open PR touches the file. dexhunter #9478 does not. tests/core/test_cell_lengths.py: 23 passed, including sphere, hex, structured, image, and mixed cells. Not deprecated."
+  }
+]
